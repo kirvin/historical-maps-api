@@ -1,99 +1,144 @@
 import { makeExecutableSchema } from '@graphql-tools/schema'
-import type { Feature } from "@prisma/client"
+import type { Feature, FeatureSlice, GeoRegion } from "@prisma/client"
 import { GraphQLContext } from './context'
+import { equal } from 'assert'
 
 const typeDefinitions = /* GraphQL */ `
   type Query {
     info: String!
-    # feed: [Link!]!
-    # comment(id: String): Comment
-    features: [Feature!]!
+    regions: [GeoRegion!]!
+    features(regionKey: String): [Feature!]!
+    feature(id: String!): Feature
   }
-
-  # type Comment {
-  #   id: ID!
-  #   body: String!
-  #   link: Link
-  # }
 
   type Mutation {
-    # postLink(url: String!, description: String!): Link!
-    # postCommentOnLink(linkId: ID!, body: String!): Comment!
+    createRegion(key: String!): GeoRegion!
     createFeature(geojson: String!): Feature!
     updateFeature(featureId: ID!, geojson: String!): Feature!
+    addFeatureToRegions(featureId: ID!, regionKeys: [String!]!): Feature!
   }
-
-  # type Link {
-  #   id: ID!
-  #   description: String!
-  #   url: String!
-  #   comments: [Comment!]!
-  # }
 
   type Feature {
     id: ID!
+    title: String!
+    slices: [FeatureSlice!]!
+    regions: [GeoRegion!]!
+  }
+
+  type FeatureSlice {
+    id: ID!
     geojson: String!
+  }
+
+  type GeoRegion {
+    id: ID!
+    key: String!
   }
 `
 
 const resolvers = {
   Query: {
     info: () => `API for managing geographic feature data`,
-    // feed: async (parent: unknown, args: {}, context: GraphQLContext) => {
-    //   return context.prisma.link.findMany()
-    // },
-    // comment: async (parent: unknown, args: { id: string }, context: GraphQLContext) => {
-    //   return context.prisma.comment.findUnique({
-    //     where: { id: parseInt(args.id) }
-    //   })
-    // },
-    // link: async (parent: unknown, args: { id: string }, context: GraphQLContext) => {
-    //   return context.prisma.link.findUnique({
-    //     where: { id: parseInt(args.id) }
-    //   })
-    // },
-    features: async (parent: unknown, args: {}, context: GraphQLContext) => {
-      return context.prisma.feature.findMany({
+    features: async (parent: unknown, args: { regionKey: string }, context: GraphQLContext) => {
+      if (args.regionKey) {
+        const regionFeatures = await context.prisma.regionalFeature.findMany({
+          where: {
+            region: {
+              key: args.regionKey
+            }
+          },
+          include: {
+            feature: true
+          }
+        })
+
+        return regionFeatures.map(rf => rf.feature);
+      }
+      else {
+        return context.prisma.feature.findMany({
+          orderBy: [
+            { updatedAt: "desc" }
+          ]
+        })
+      }
+    },
+    feature: async (parent: unknown, args: { id: string }, context: GraphQLContext) => {
+      return context.prisma.feature.findUnique({ where: { id: parseInt(args.id) } });
+    },
+    regions: async (parent: unknown, args: {}, context: GraphQLContext) => {
+      return context.prisma.geoRegion.findMany({
         orderBy: [
-          { updatedAt: "desc" }
+          { key: "asc" }
         ]
       })
     }
   },
   Feature: {
     id: (item: Feature) => item.id,
-    geojson: (item: Feature) => item.geojson
+    title: (item: Feature) => item.title,
+    regions: async (item: Feature, args: {}, context: GraphQLContext) => {
+      const regionFeatures = await context.prisma.regionalFeature.findMany(
+        {
+          where: { featureId: item.id },
+          include: { region: true }
+        }
+      )
+      return regionFeatures.map(rf => rf.region);
+    }
   },
-  // Comment: {
-  //   id: (parent: Comment) => parent.id,
-  //   body: (parent: Comment) => parent.body,
-  // },
-  // Link: {
-  //   id: (parent: Link) => parent.id,
-  //   description: (parent: Link) => parent.description,
-  //   url: (parent: Link) => parent.url,
-  //   comments: (parent: Link, args: {}, context: GraphQLContext) => {
-  //     return context.prisma.comment.findMany({
-  //       where: { linkId: parent.id }
-  //     })
-  //   }
-  // },
+  FeatureSlice: {
+    geojson: (item: FeatureSlice) => item.geojson
+  },
   Mutation: {
+    async addFeatureToRegions(
+      item: unknown,
+      args: { featureId: string, regionKeys: string[] },
+      context: GraphQLContext
+    ) {
+      let feature = await context.prisma.feature.findUnique({ where: { id: parseInt(args.featureId) } })
+
+      if (feature && feature !== null) {
+        // get all regions identified by the keys
+        const regions = await context.prisma.geoRegion.findMany(
+          { where: { key: { in: args.regionKeys } } }
+        )
+        await context.prisma.regionalFeature.deleteMany({ where: { featureId: feature.id } });
+
+        await context.prisma.regionalFeature.createMany(
+          { data: regions.map(r => ({ regionId: r.id, featureId: parseInt(args.featureId) })) }
+        )
+        feature = await context.prisma.feature.findUnique({ where: { id: parseInt(args.featureId) } })
+      }
+
+      return feature;
+    },
+    async createRegion(
+      item: unknown,
+      args: { key: string },
+      context: GraphQLContext
+    ) {
+      const newRegion = await context.prisma.geoRegion.create({
+        data: {
+          key: args.key
+        }
+      })
+      return newRegion;
+    },
     async createFeature(
       item: unknown,
-      args: { geojson: string },
+      args: { title: string },
       context: GraphQLContext
     ) {
       const newFeature = await context.prisma.feature.create({
         data: {
-          geojson: args.geojson
+          title: args.title
         }
       })
       return newFeature;
     },
     async updateFeature(
       item: unknown,
-      args: { id: string, geojson: string },
+      args: { id: string, title: string },
       context: GraphQLContext
     ) {
       const result = await context.prisma.feature.update({
@@ -101,39 +146,12 @@ const resolvers = {
           id: parseInt(args.id)
         },
         data: {
-          geojson: args.geojson
+          title: args.title
         }
       })
 
       return result;
     }
-    // async postLink(
-    //   parent: unknown,
-    //   args: { description: string, url: string },
-    //   context: GraphQLContext
-    // ) {
-    //   const newLink = await context.prisma.link.create({
-    //     data: {
-    //       url: args.url,
-    //       description: args.description
-    //     }
-    //   })
-    //   return newLink;
-    // },
-    // async postCommentOnLink(
-    //   parent: unknown,
-    //   args: { linkId: string; body: string },
-    //   context: GraphQLContext
-    // ) {
-    //   const newComment = await context.prisma.comment.create({
-    //     data: {
-    //       linkId: parseInt(args.linkId),
-    //       body: args.body
-    //     }
-    //   })
-
-    //   return newComment
-    // }
   }
 }
 
