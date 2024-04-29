@@ -4,6 +4,31 @@ import { GraphQLContext } from './context'
 import { equal } from 'assert'
 
 const typeDefinitions = /* GraphQL */ `
+  input FeatureInput {
+    id: ID!
+    title: String
+    type: FeatureType
+    regions: [GeoRegionInput!]
+    slices: [FeatureSliceInput!]
+  }
+
+  input GeoRegionInput {
+    key: String!
+  }
+
+  input FeatureSliceInput {
+    geoJSON: String!
+  }
+
+  enum FeatureType {
+    Point
+    Marker
+    Circle
+    Area
+    Route
+    Line
+  }
+
   type Query {
     info: String!
     regions: [GeoRegion!]!
@@ -14,12 +39,13 @@ const typeDefinitions = /* GraphQL */ `
   type Mutation {
     createRegion(key: String!): GeoRegion!
     createFeature(geojson: String!): Feature!
-    updateFeature(featureId: ID!, geojson: String!): Feature!
+    updateFeature(feature: FeatureInput!): Feature!
     addFeatureToRegions(featureId: ID!, regionKeys: [String!]!): Feature!
   }
 
   type Feature {
     id: ID!
+    type: FeatureType!
     title: String!
     slices: [FeatureSlice!]!
     regions: [GeoRegion!]!
@@ -35,6 +61,12 @@ const typeDefinitions = /* GraphQL */ `
     key: String!
   }
 `
+
+type FeatureInput = {
+  id: string
+  title: string
+  type: string
+}
 
 const resolvers = {
   Query: {
@@ -76,6 +108,7 @@ const resolvers = {
   Feature: {
     id: (item: Feature) => item.id,
     title: (item: Feature) => item.title,
+    type: (item: Feature) => item.type,
     regions: async (item: Feature, args: {}, context: GraphQLContext) => {
       const regionFeatures = await context.prisma.regionalFeature.findMany(
         {
@@ -84,6 +117,14 @@ const resolvers = {
         }
       )
       return regionFeatures.map(rf => rf.region);
+    },
+    slices: async (item: Feature, args: {}, context: GraphQLContext) => {
+      const featuresSlices = await context.prisma.featureSlice.findMany(
+        {
+          where: { featureId: item.id }
+        }
+      )
+      return featuresSlices;
     }
   },
   FeatureSlice: {
@@ -138,19 +179,29 @@ const resolvers = {
     },
     async updateFeature(
       item: unknown,
-      args: { id: string, title: string },
+      args: { feature: FeatureInput },
       context: GraphQLContext
     ) {
-      const result = await context.prisma.feature.update({
-        where: {
-          id: parseInt(args.id)
-        },
+      const featureId = parseInt(args.feature.id);
+      const updateResult = await context.prisma.feature.update({
+        where: { id: featureId },
         data: {
-          title: args.title
+          title: args.feature.title,
+          type: args.feature.type
         }
-      })
+      });
+      // @TODO implement regions update
+      // @TODO implement slices update
 
-      return result;
+      // const result = await context.prisma.feature.update({
+      //   where: {
+      //     id: parseInt(args.id)
+      //   },
+      //   data: {
+      //     title: args.title
+      //   }
+      // })
+      return context.prisma.feature.findUnique({ where: { id: featureId } });
     }
   }
 }
