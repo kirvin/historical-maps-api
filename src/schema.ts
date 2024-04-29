@@ -2,6 +2,7 @@ import { makeExecutableSchema } from '@graphql-tools/schema'
 import type { Feature, FeatureSlice, GeoRegion } from "@prisma/client"
 import { GraphQLContext } from './context'
 import { equal } from 'assert'
+import FeatureResolver from "./resolvers/feature-resolver";
 
 const DEFAULT_FEATURE_TYPE = "Point";
 const FEATURE_TYPES = [
@@ -71,11 +72,22 @@ const typeDefinitions = /* GraphQL */ `
     key: String!
   }
 `
-
+// @TODO figure out how to automatically derive these types from schema definition above
 type FeatureInput = {
   id: string
   title: string
   type: string
+  regions: Array<GeoRegionInput>
+  slices: Array<FeatureSliceInput>
+}
+
+type GeoRegionInput = {
+  key: string
+}
+
+type FeatureSliceInput = {
+  id: string
+  geojson: string
 }
 
 const resolvers = {
@@ -151,20 +163,11 @@ const resolvers = {
       args: { featureId: string, regionKeys: string[] },
       context: GraphQLContext
     ) {
-      let feature = await context.prisma.feature.findUnique({ where: { id: parseInt(args.featureId) } })
-
-      if (feature && feature !== null) {
-        // get all regions identified by the keys
-        const regions = await context.prisma.geoRegion.findMany(
-          { where: { key: { in: args.regionKeys } } }
-        )
-        await context.prisma.regionalFeature.deleteMany({ where: { featureId: feature.id } });
-
-        await context.prisma.regionalFeature.createMany(
-          { data: regions.map(r => ({ regionId: r.id, featureId: parseInt(args.featureId) })) }
-        )
-        feature = await context.prisma.feature.findUnique({ where: { id: parseInt(args.featureId) } })
-      }
+      const feature = await FeatureResolver.addFeatureToRegions(
+        item,
+        args,
+        context
+      );
 
       return feature;
     },
@@ -206,16 +209,16 @@ const resolvers = {
         }
       });
       // @TODO implement regions update
+      await FeatureResolver.addFeatureToRegions(
+        item,
+        {
+          featureId: args.feature.id,
+          regionKeys: args.feature.regions.map(r => r.key)
+        },
+        context
+      );
       // @TODO implement slices update
 
-      // const result = await context.prisma.feature.update({
-      //   where: {
-      //     id: parseInt(args.id)
-      //   },
-      //   data: {
-      //     title: args.title
-      //   }
-      // })
       return context.prisma.feature.findUnique({ where: { id: featureId } });
     }
   }

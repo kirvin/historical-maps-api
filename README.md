@@ -2,7 +2,10 @@
 API for managing historical maps data
 
 ## TODO API Work
-- [ ] Add Feature.title
-- [ ] Add Feature.type
-- [ ] Add Feature.regions
-- [ ] Add FeatureSlice (?)
+- [ ] Feature:  update regions
+- [ ] Feature:  update slices
+- [ ] Feature:  validate FeatureSlice.geojson before updating
+- [x] Add Feature.title
+- [x] Add Feature.type
+- [x] Add Feature.regions
+- [x] Add FeatureSlice
