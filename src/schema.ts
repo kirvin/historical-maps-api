@@ -3,6 +3,16 @@ import type { Feature, FeatureSlice, GeoRegion } from "@prisma/client"
 import { GraphQLContext } from './context'
 import { equal } from 'assert'
 
+const DEFAULT_FEATURE_TYPE = "Point";
+const FEATURE_TYPES = [
+  DEFAULT_FEATURE_TYPE,
+  "Marker",
+  "Circle",
+  "Area",
+  "Route",
+  "Line"
+]
+
 const typeDefinitions = /* GraphQL */ `
   input FeatureInput {
     id: ID!
@@ -108,7 +118,12 @@ const resolvers = {
   Feature: {
     id: (item: Feature) => item.id,
     title: (item: Feature) => item.title,
-    type: (item: Feature) => item.type,
+    type: (item: Feature) => {
+      if (FEATURE_TYPES.includes(item.type)) {
+        return item.type;
+      }
+      return DEFAULT_FEATURE_TYPE;
+    },
     regions: async (item: Feature, args: {}, context: GraphQLContext) => {
       const regionFeatures = await context.prisma.regionalFeature.findMany(
         {
