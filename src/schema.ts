@@ -28,7 +28,11 @@ const typeDefinitions = /* GraphQL */ `
   }
 
   input FeatureSliceInput {
-    geoJSON: String!
+    id: ID
+    featureId: ID!
+    coordinates: String!
+    startDate: String
+    endDate: String
   }
 
   enum FeatureType {
@@ -64,7 +68,9 @@ const typeDefinitions = /* GraphQL */ `
 
   type FeatureSlice {
     id: ID!
-    geojson: String!
+    startDate: String
+    endDate: String
+    coordinates: String!
   }
 
   type GeoRegion {
@@ -87,7 +93,9 @@ type GeoRegionInput = {
 
 type FeatureSliceInput = {
   id: string
-  geojson: string
+  startDate: string
+  endDate: string
+  coordinates: string
 }
 
 const resolvers = {
@@ -155,7 +163,9 @@ const resolvers = {
     }
   },
   FeatureSlice: {
-    geojson: (item: FeatureSlice) => item.geojson
+    coordinates: (item: FeatureSlice) => item.coordinates,
+    startDate: (item: FeatureSlice) => item.startDate,
+    endDate: (item: FeatureSlice) => item.endDate
   },
   Mutation: {
     async addFeatureToRegions(
@@ -208,15 +218,17 @@ const resolvers = {
           type: args.feature.type
         }
       });
-      // @TODO implement regions update
+
+      // Associate regions to Feature
       await FeatureResolver.addFeatureToRegions(
         item,
         {
           featureId: args.feature.id,
-          regionKeys: args.feature.regions.map(r => r.key)
+          regionKeys: args.feature?.regions?.map(r => r.key)
         },
         context
       );
+
       // @TODO implement slices update
 
       return context.prisma.feature.findUnique({ where: { id: featureId } });

@@ -19,12 +19,14 @@ model Feature {
 }
 
 model FeatureSlice {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  geojson   String
-  feature   Feature  @relation(fields: [featureId], references: [id])
-  featureId Int
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  startDate   DateTime
+  endDate     DateTime
+  coordinates String
+  feature     Feature  @relation(fields: [featureId], references: [id])
+  featureId   Int
 }
 
 model GeoRegion {
