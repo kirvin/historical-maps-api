@@ -1,4 +1,6 @@
 import { makeExecutableSchema } from '@graphql-tools/schema'
+import { formatISO } from "date-fns";
+
 import type { Feature, FeatureSlice, GeoRegion } from "@prisma/client"
 import { GraphQLContext } from './context'
 import { equal } from 'assert'
@@ -93,6 +95,7 @@ type GeoRegionInput = {
 
 type FeatureSliceInput = {
   id: string
+  featureId: string
   startDate: string
   endDate: string
   coordinates: string
@@ -164,8 +167,8 @@ const resolvers = {
   },
   FeatureSlice: {
     coordinates: (item: FeatureSlice) => item.coordinates,
-    startDate: (item: FeatureSlice) => item.startDate,
-    endDate: (item: FeatureSlice) => item.endDate
+    startDate: (item: FeatureSlice) => item.startDate ? formatISO(item.startDate) : null,
+    endDate: (item: FeatureSlice) => item.endDate ? formatISO(item.endDate) : null
   },
   Mutation: {
     async addFeatureToRegions(
@@ -230,6 +233,14 @@ const resolvers = {
       );
 
       // @TODO implement slices update
+      await FeatureResolver.updateFeatureSlices(
+        item,
+        {
+          featureId: args.feature.id,
+          slices: args.feature?.slices || []
+        },
+        context
+      )
 
       return context.prisma.feature.findUnique({ where: { id: featureId } });
     }
