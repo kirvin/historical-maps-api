@@ -213,20 +213,32 @@ const resolvers = {
       args: { feature: FeatureInput },
       context: GraphQLContext
     ) {
-      const featureId = parseInt(args.feature.id);
-      const updateResult = await context.prisma.feature.update({
-        where: { id: featureId },
-        data: {
-          title: args.feature.title,
-          type: args.feature.type
-        }
-      });
+      let featureId = parseInt(args.feature.id);
+      let feature = null;
+      if (featureId && featureId > 0) {
+        feature = await context.prisma.feature.update({
+          where: { id: featureId },
+          data: {
+            title: args.feature.title,
+            type: args.feature.type
+          }
+        });
+      }
+      else {
+        feature = await context.prisma.feature.create({
+          data: {
+            title: args.feature.title,
+            type: args.feature.type
+          }
+        });
+        featureId = feature.id;
+      }
 
       // Associate regions to Feature
       await FeatureResolver.addFeatureToRegions(
         item,
         {
-          featureId: args.feature.id,
+          featureId: feature.id.toString(),
           regionKeys: args.feature?.regions?.map(r => r.key)
         },
         context
@@ -236,7 +248,7 @@ const resolvers = {
       await FeatureResolver.updateFeatureSlices(
         item,
         {
-          featureId: args.feature.id,
+          featureId: feature.id.toString(),
           slices: args.feature?.slices || []
         },
         context
