@@ -33,8 +33,8 @@ const typeDefinitions = /* GraphQL */ `
     id: ID
     featureId: ID!
     coordinates: String!
-    startDate: String
-    endDate: String
+    startYear: Int
+    endYear: Int
   }
 
   enum FeatureType {
@@ -70,8 +70,8 @@ const typeDefinitions = /* GraphQL */ `
 
   type FeatureSlice {
     id: ID!
-    startDate: String
-    endDate: String
+    startYear: Int
+    endYear: Int
     coordinates: String!
   }
 
@@ -96,8 +96,8 @@ type GeoRegionInput = {
 type FeatureSliceInput = {
   id: string
   featureId: string
-  startDate: string
-  endDate: string
+  startYear: number
+  endYear: number
   coordinates: string
 }
 
@@ -167,8 +167,8 @@ const resolvers = {
   },
   FeatureSlice: {
     coordinates: (item: FeatureSlice) => item.coordinates,
-    startDate: (item: FeatureSlice) => item.startDate ? formatISO(item.startDate) : null,
-    endDate: (item: FeatureSlice) => item.endDate ? formatISO(item.endDate) : null
+    startYear: (item: FeatureSlice) => item.startYear,
+    endYear: (item: FeatureSlice) => item.endYear
   },
   Mutation: {
     async addFeatureToRegions(

@@ -1,5 +1,23 @@
-import { parseISO } from "date-fns";
+import { parseISO, isValid, formatISO } from "date-fns";
 import { GraphQLContext } from '../context'
+import pino from "pino";
+
+const logger = pino({ name: "FeatureResolver" })
+
+const parseDateValue = (sourceValue: string) => {
+  let parsedDate = null;
+  try {
+    parsedDate = parseISO(sourceValue, { additionalDigits: 2 });
+    if (!isValid(parsedDate)) {
+      logger.info(`Unable to parse valid date from source value '${sourceValue}'`);
+      parsedDate = null;
+    }
+  } catch (err) {
+    logger.warn(`Error while parsing date from value ${sourceValue}: ${err}`);
+  }
+
+  return parsedDate;
+};
 
 const FeatureResolver = {
   addFeatureToRegions: async (
@@ -36,14 +54,20 @@ const FeatureResolver = {
     let feature = await context.prisma.feature.findUnique({ where: { id: parseInt(args.featureId) } })
     if (feature && feature !== null) {
       args.slices.forEach(async s => {
+        const sliceData: any = {
+          coordinates: s.coordinates,
+        }
+        if (s.startYear) {
+          sliceData.startYear = s.startYear;
+        }
+        if (s.endYear) {
+          sliceData.endYear = s.endYear
+        }
+
         // update an existing FeatureSlice
         if (s.id) {
           await context.prisma.featureSlice.update({
-            data: {
-              coordinates: s.coordinates,
-              startDate: s.startDate,
-              endDate: s.endDate
-            },
+            data: sliceData,
             where: {
               id: parseInt(s.id)
             }
@@ -51,27 +75,10 @@ const FeatureResolver = {
         }
         // add a new FeatureSlice
         else {
-          const createProps: any = {
-            featureId: feature.id,
-            coordinates: s.coordinates
-          };
-          if (s.startDate) {
-            try {
-              createProps.startDate = parseISO(s.startDate);
-            } catch (err) {
-              console.info(`Unable to parse startDate from value ${s.startDate} while creating FeatureSlice`);
-            }
-          }
-          if (s.endDate) {
-            try {
-              createProps.endDate = parseISO(s.endDate);
-            } catch (err) {
-              console.info(`Unable to parse endDate from value ${s.endDate} while creating FeatureSlice`);
-            }
-          }
+          sliceData.featureId = feature.id;
 
           await context.prisma.featureSlice.create({
-            data: createProps
+            data: sliceData
           })
         }
       })
@@ -81,7 +88,8 @@ const FeatureResolver = {
     }
 
     return feature;
-  }
+  },
 }
 
+export { parseDateValue };
 export default FeatureResolver;
