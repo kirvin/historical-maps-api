@@ -19,13 +19,13 @@ model Feature {
 }
 
 model FeatureSlice {
-  id          Int       @id @default(autoincrement())
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  startDate   DateTime?
-  endDate     DateTime?
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  startYear   Int?
+  endYear     Int?
   coordinates String
-  feature     Feature   @relation(fields: [featureId], references: [id])
+  feature     Feature  @relation(fields: [featureId], references: [id])
   featureId   Int
 }
 
