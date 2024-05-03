@@ -49,7 +49,7 @@ const typeDefinitions = /* GraphQL */ `
   type Query {
     info: String!
     regions: [GeoRegion!]!
-    features(regionKey: String): [Feature!]!
+    features(regionKeys: [String!]): [Feature!]!
     feature(id: String!): Feature
   }
 
@@ -104,12 +104,12 @@ type FeatureSliceInput = {
 const resolvers = {
   Query: {
     info: () => `API for managing geographic feature data`,
-    features: async (parent: unknown, args: { regionKey: string }, context: GraphQLContext) => {
-      if (args.regionKey) {
+    features: async (parent: unknown, args: { regionKeys: string[] }, context: GraphQLContext) => {
+      if (args.regionKeys) {
         const regionFeatures = await context.prisma.regionalFeature.findMany({
           where: {
             region: {
-              key: args.regionKey
+              key: { in: args.regionKeys }
             }
           },
           include: {
