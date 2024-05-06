@@ -1,10 +1,12 @@
 import { makeExecutableSchema } from '@graphql-tools/schema'
 import { formatISO } from "date-fns";
+import pino from "pino";
 
 import type { Feature, FeatureSlice, GeoRegion } from "@prisma/client"
 import { GraphQLContext } from './context'
 import { equal } from 'assert'
 import FeatureResolver from "./resolvers/feature-resolver";
+const logger = pino();
 
 const DEFAULT_FEATURE_TYPE = "Point";
 const FEATURE_TYPES = [
@@ -56,8 +58,20 @@ const typeDefinitions = /* GraphQL */ `
   type Mutation {
     createRegion(key: String!): GeoRegion!
     createFeature(geojson: String!): Feature!
+    deleteFeature(featureId: ID!): FeatureDeleteResult
     updateFeature(feature: FeatureInput!): Feature!
     addFeatureToRegions(featureId: ID!, regionKeys: [String!]!): Feature!
+    deleteFeatureSlice(featureSliceId: ID!): FeatureSliceDeleteResult
+  }
+
+  type FeatureDeleteResult {
+    success: Boolean!
+    feature: Feature
+  }
+
+  type FeatureSliceDeleteResult {
+    success: Boolean!
+    featureSlice: FeatureSlice
   }
 
   type Feature {
@@ -165,6 +179,10 @@ const resolvers = {
       return featuresSlices;
     }
   },
+  FeatureDeleteResult: {
+    success: (deleteResult: any) => (deleteResult.success === true) ? true : false,
+    feature: (deleteResult: any) => deleteResult.feature
+  },
   FeatureSlice: {
     coordinates: (item: FeatureSlice) => item.coordinates,
     startYear: (item: FeatureSlice) => item.startYear,
@@ -255,6 +273,56 @@ const resolvers = {
       )
 
       return context.prisma.feature.findUnique({ where: { id: featureId } });
+    },
+    async deleteFeature(
+      item: unknown,
+      args: { featureId: string },
+      context: GraphQLContext
+    ) {
+      const result = {
+        feature: <any>null,
+        success: false
+      };
+
+      try {
+        const deleteResult = await context.prisma.feature.delete({
+          where: { id: parseInt(args.featureId) }
+        });
+        if (deleteResult?.id) {
+          result.feature = deleteResult;
+          result.success = true;
+        }
+        logger.info(`Deleted Feature#${args.featureId}: ${result}`);
+      } catch (err) {
+        logger.info(`Unable to delete Feature#${args.featureId}: ${err}`);
+      }
+
+      return result;
+    },
+    async deleteFeatureSlice(
+      item: unknown,
+      args: { featureSliceId: string },
+      context: GraphQLContext
+    ) {
+      const result = {
+        featureSlice: <any>null,
+        success: false
+      };
+
+      try {
+        const deleteResult = await context.prisma.featureSlice.delete({
+          where: { id: parseInt(args.featureSliceId) }
+        });
+        if (deleteResult?.id) {
+          result.featureSlice = deleteResult;
+          result.success = true;
+        }
+        logger.info(`Deleted FeatureSlice#${args.featureSliceId}: ${result}`);
+      } catch (err) {
+        logger.info(`Unable to delete FeatureSlice#${args.featureSliceId}: ${err}`);
+      }
+
+      return result;
     }
   }
 }

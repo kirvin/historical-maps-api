@@ -25,7 +25,7 @@ model FeatureSlice {
   startYear   Int?
   endYear     Int?
   coordinates String
-  feature     Feature  @relation(fields: [featureId], references: [id])
+  feature     Feature  @relation(fields: [featureId], references: [id], onDelete: Cascade)
   featureId   Int
 }
 
@@ -38,7 +38,7 @@ model GeoRegion {
 
 model RegionalFeature {
   id        Int       @id @default(autoincrement())
-  feature   Feature   @relation(fields: [featureId], references: [id])
+  feature   Feature   @relation(fields: [featureId], references: [id], onDelete: Cascade)
   featureId Int
   region    GeoRegion @relation(fields: [regionId], references: [id])
   regionId  Int
