@@ -1,4 +1,5 @@
 import { makeExecutableSchema } from '@graphql-tools/schema'
+import { GraphQLScalarType, Kind } from 'graphql';
 import { formatISO } from "date-fns";
 import pino from "pino";
 
@@ -6,6 +7,8 @@ import type { Feature, FeatureSlice, GeoRegion } from "@prisma/client"
 import { GraphQLContext } from './context'
 import { equal } from 'assert'
 import FeatureResolver from "./resolvers/feature-resolver";
+import MutationResolvers from "./resolvers/mutations";
+import { serialize } from 'v8';
 const logger = pino();
 
 const DEFAULT_FEATURE_TYPE = "Point";
@@ -19,6 +22,8 @@ const FEATURE_TYPES = [
 ]
 
 const typeDefinitions = /* GraphQL */ `
+  scalar DateTime
+
   input FeatureInput {
     id: ID!
     title: String
@@ -60,6 +65,7 @@ const typeDefinitions = /* GraphQL */ `
     createFeature(geojson: String!): Feature!
     deleteFeature(featureId: ID!): FeatureDeleteResult
     updateFeature(feature: FeatureInput!): Feature!
+    updateFeatureSlice(featureSlice: FeatureSliceInput!): FeatureSlice!
     addFeatureToRegions(featureId: ID!, regionKeys: [String!]!): Feature!
     deleteFeatureSlice(featureSliceId: ID!): FeatureSliceDeleteResult
   }
@@ -80,6 +86,8 @@ const typeDefinitions = /* GraphQL */ `
     title: String!
     slices: [FeatureSlice!]!
     regions: [GeoRegion!]!
+    createdAt: DateTime
+    updatedAt: DateTime
   }
 
   type FeatureSlice {
@@ -87,6 +95,8 @@ const typeDefinitions = /* GraphQL */ `
     startYear: Int
     endYear: Int
     coordinates: String!
+    createdAt: DateTime
+    updatedAt: DateTime
   }
 
   type GeoRegion {
@@ -94,28 +104,24 @@ const typeDefinitions = /* GraphQL */ `
     key: String!
   }
 `
-// @TODO figure out how to automatically derive these types from schema definition above
-type FeatureInput = {
-  id: string
-  title: string
-  type: string
-  regions: Array<GeoRegionInput>
-  slices: Array<FeatureSliceInput>
-}
-
-type GeoRegionInput = {
-  key: string
-}
-
-type FeatureSliceInput = {
-  id: string
-  featureId: string
-  startYear: number
-  endYear: number
-  coordinates: string
-}
 
 const resolvers = {
+  DateTime: {
+    name: "DateTime",
+    description: "ISO8601 DateTime",
+    parseValue(value: string) {
+      return new Date(value)
+    },
+    serialize(value: string) {
+      return formatISO(value);
+    },
+    parseLiteral(ast: any) {
+      if (ast.kind === Kind.INT) {
+        return new Date(+ast.value);
+      }
+      return null;
+    }
+  },
   Query: {
     info: () => `API for managing geographic feature data`,
     features: async (parent: unknown, args: { regionKeys: string[] }, context: GraphQLContext) => {
@@ -188,143 +194,7 @@ const resolvers = {
     startYear: (item: FeatureSlice) => item.startYear,
     endYear: (item: FeatureSlice) => item.endYear
   },
-  Mutation: {
-    async addFeatureToRegions(
-      item: unknown,
-      args: { featureId: string, regionKeys: string[] },
-      context: GraphQLContext
-    ) {
-      const feature = await FeatureResolver.addFeatureToRegions(
-        item,
-        args,
-        context
-      );
-
-      return feature;
-    },
-    async createRegion(
-      item: unknown,
-      args: { key: string },
-      context: GraphQLContext
-    ) {
-      const newRegion = await context.prisma.geoRegion.create({
-        data: {
-          key: args.key
-        }
-      })
-      return newRegion;
-    },
-    async createFeature(
-      item: unknown,
-      args: { title: string },
-      context: GraphQLContext
-    ) {
-      const newFeature = await context.prisma.feature.create({
-        data: {
-          title: args.title
-        }
-      })
-      return newFeature;
-    },
-    async updateFeature(
-      item: unknown,
-      args: { feature: FeatureInput },
-      context: GraphQLContext
-    ) {
-      let featureId = parseInt(args.feature.id);
-      let feature = null;
-      if (featureId && featureId > 0) {
-        feature = await context.prisma.feature.update({
-          where: { id: featureId },
-          data: {
-            title: args.feature.title,
-            type: args.feature.type
-          }
-        });
-      }
-      else {
-        feature = await context.prisma.feature.create({
-          data: {
-            title: args.feature.title,
-            type: args.feature.type
-          }
-        });
-        featureId = feature.id;
-      }
-
-      // Associate regions to Feature
-      await FeatureResolver.addFeatureToRegions(
-        item,
-        {
-          featureId: feature.id.toString(),
-          regionKeys: args.feature?.regions?.map(r => r.key)
-        },
-        context
-      );
-
-      // @TODO implement slices update
-      await FeatureResolver.updateFeatureSlices(
-        item,
-        {
-          featureId: feature.id.toString(),
-          slices: args.feature?.slices || []
-        },
-        context
-      )
-
-      return context.prisma.feature.findUnique({ where: { id: featureId } });
-    },
-    async deleteFeature(
-      item: unknown,
-      args: { featureId: string },
-      context: GraphQLContext
-    ) {
-      const result = {
-        feature: <any>null,
-        success: false
-      };
-
-      try {
-        const deleteResult = await context.prisma.feature.delete({
-          where: { id: parseInt(args.featureId) }
-        });
-        if (deleteResult?.id) {
-          result.feature = deleteResult;
-          result.success = true;
-        }
-        logger.info(`Deleted Feature#${args.featureId}: ${result}`);
-      } catch (err) {
-        logger.info(`Unable to delete Feature#${args.featureId}: ${err}`);
-      }
-
-      return result;
-    },
-    async deleteFeatureSlice(
-      item: unknown,
-      args: { featureSliceId: string },
-      context: GraphQLContext
-    ) {
-      const result = {
-        featureSlice: <any>null,
-        success: false
-      };
-
-      try {
-        const deleteResult = await context.prisma.featureSlice.delete({
-          where: { id: parseInt(args.featureSliceId) }
-        });
-        if (deleteResult?.id) {
-          result.featureSlice = deleteResult;
-          result.success = true;
-        }
-        logger.info(`Deleted FeatureSlice#${args.featureSliceId}: ${result}`);
-      } catch (err) {
-        logger.info(`Unable to delete FeatureSlice#${args.featureSliceId}: ${err}`);
-      }
-
-      return result;
-    }
-  }
+  Mutation: MutationResolvers
 }
 
 export const schema = makeExecutableSchema({
