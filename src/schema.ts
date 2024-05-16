@@ -26,6 +26,7 @@ const typeDefinitions = /* GraphQL */ `
 
   input FeatureInput {
     id: ID!
+    uuid: String!
     title: String
     type: FeatureType
     regions: [GeoRegionInput!]
@@ -38,6 +39,7 @@ const typeDefinitions = /* GraphQL */ `
 
   input FeatureSliceInput {
     id: ID
+    uuid: String!
     featureId: ID!
     coordinates: String!
     startYear: Int
@@ -82,6 +84,7 @@ const typeDefinitions = /* GraphQL */ `
 
   type Feature {
     id: ID!
+    uuid: String!
     type: FeatureType!
     title: String!
     slices: [FeatureSlice!]!
@@ -92,6 +95,7 @@ const typeDefinitions = /* GraphQL */ `
 
   type FeatureSlice {
     id: ID!
+    uuid: String!
     startYear: Int
     endYear: Int
     coordinates: String!
@@ -160,6 +164,7 @@ const resolvers = {
   },
   Feature: {
     id: (item: Feature) => item.id,
+    uuid: (item: Feature) => item.uuid,
     title: (item: Feature) => item.title,
     type: (item: Feature) => {
       if (FEATURE_TYPES.includes(item.type)) {

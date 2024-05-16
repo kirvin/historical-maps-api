@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import pino from "pino";
 
 import { GraphQLContext } from '../context'
@@ -34,11 +35,12 @@ const MutationResolvers = {
   },
   async createFeature(
     item: unknown,
-    args: { title: string },
+    args: { uuid: string, title: string },
     context: GraphQLContext
   ) {
     const newFeature = await context.prisma.feature.create({
       data: {
+        uuid: args.uuid || uuidv4(),
         title: args.title
       }
     })
@@ -55,6 +57,7 @@ const MutationResolvers = {
       feature = await context.prisma.feature.update({
         where: { id: featureId },
         data: {
+          uuid: args.feature.uuid,
           title: args.feature.title,
           type: args.feature.type
         }
@@ -63,6 +66,7 @@ const MutationResolvers = {
     else {
       feature = await context.prisma.feature.create({
         data: {
+          uuid: args.feature.uuid,
           title: args.feature.title,
           type: args.feature.type
         }
@@ -128,6 +132,7 @@ const MutationResolvers = {
       featureSlice = await context.prisma.featureSlice.update({
         where: { id: featureSliceId },
         data: {
+          uuid: args.featureSlice.uuid,
           coordinates: args.featureSlice.coordinates,
           startYear: args.featureSlice.startYear,
           endYear: args.featureSlice.endYear
@@ -138,6 +143,7 @@ const MutationResolvers = {
     else {
       featureSlice = await context.prisma.featureSlice.create({
         data: {
+          uuid: args.featureSlice.uuid,
           featureId: parseInt(args.featureSlice.featureId),
           coordinates: args.featureSlice.coordinates,
           startYear: args.featureSlice.startYear,

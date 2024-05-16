@@ -55,6 +55,7 @@ const FeatureResolver = {
     if (feature && feature !== null) {
       args.slices.forEach(async s => {
         const sliceData: any = {
+          uuid: s.uuid,
           coordinates: s.coordinates,
         }
         if (s.startYear) {

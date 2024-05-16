@@ -9,6 +9,7 @@ generator client {
 
 model Feature {
   id              Int               @id @default(autoincrement())
+  uuid            String            @unique @default(uuid())
   title           String            @default("Unknown Feature")
   type            String            @default("marker")
   slices          FeatureSlice[]
@@ -20,6 +21,7 @@ model Feature {
 
 model FeatureSlice {
   id          Int      @id @default(autoincrement())
+  uuid        String   @unique @default(uuid())
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   startYear   Int?

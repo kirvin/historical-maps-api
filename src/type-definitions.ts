@@ -1,6 +1,7 @@
 // @TODO figure out how to automatically derive these types from schema definition above
 type FeatureInput = {
   id: string
+  uuid: string
   title: string
   type: string
   regions: Array<GeoRegionInput>
@@ -13,6 +14,7 @@ type GeoRegionInput = {
 
 type FeatureSliceInput = {
   id: string
+  uuid: string
   featureId: string
   startYear: number
   endYear: number
