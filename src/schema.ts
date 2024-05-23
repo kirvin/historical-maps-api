@@ -11,9 +11,9 @@ import MutationResolvers from "./resolvers/mutations";
 import { serialize } from 'v8';
 const logger = pino();
 
-const DEFAULT_FEATURE_TYPE = "Point";
-const FEATURE_TYPES = [
-  DEFAULT_FEATURE_TYPE,
+const DEFAULT_FEATURE_SLICE_TYPE = "Point";
+const FEATURE_SLICE_TYPES = [
+  DEFAULT_FEATURE_SLICE_TYPE,
   "Marker",
   "Circle",
   "Area",
@@ -28,7 +28,6 @@ const typeDefinitions = /* GraphQL */ `
     id: ID!
     uuid: String!
     title: String
-    type: FeatureType
     regions: [GeoRegionInput!]
     slices: [FeatureSliceInput!]
   }
@@ -41,12 +40,13 @@ const typeDefinitions = /* GraphQL */ `
     id: ID
     uuid: String!
     featureId: ID!
+    type: FeatureSliceType
     coordinates: String!
     startYear: Int
     endYear: Int
   }
 
-  enum FeatureType {
+  enum FeatureSliceType {
     Point
     Marker
     Circle
@@ -85,7 +85,6 @@ const typeDefinitions = /* GraphQL */ `
   type Feature {
     id: ID!
     uuid: String!
-    type: FeatureType!
     title: String!
     slices: [FeatureSlice!]!
     regions: [GeoRegion!]!
@@ -96,6 +95,7 @@ const typeDefinitions = /* GraphQL */ `
   type FeatureSlice {
     id: ID!
     uuid: String!
+    type: FeatureSliceType!
     startYear: Int
     endYear: Int
     coordinates: String!
@@ -166,12 +166,6 @@ const resolvers = {
     id: (item: Feature) => item.id,
     uuid: (item: Feature) => item.uuid,
     title: (item: Feature) => item.title,
-    type: (item: Feature) => {
-      if (FEATURE_TYPES.includes(item.type)) {
-        return item.type;
-      }
-      return DEFAULT_FEATURE_TYPE;
-    },
     regions: async (item: Feature, args: {}, context: GraphQLContext) => {
       const regionFeatures = await context.prisma.regionalFeature.findMany(
         {
@@ -197,7 +191,13 @@ const resolvers = {
   FeatureSlice: {
     coordinates: (item: FeatureSlice) => item.coordinates,
     startYear: (item: FeatureSlice) => item.startYear,
-    endYear: (item: FeatureSlice) => item.endYear
+    endYear: (item: FeatureSlice) => item.endYear,
+    type: (item: FeatureSlice) => {
+      if (FEATURE_SLICE_TYPES.includes(item.type)) {
+        return item.type;
+      }
+      return DEFAULT_FEATURE_SLICE_TYPE;
+    },
   },
   Mutation: MutationResolvers
 }

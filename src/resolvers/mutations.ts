@@ -58,8 +58,7 @@ const MutationResolvers = {
         where: { id: featureId },
         data: {
           uuid: args.feature.uuid,
-          title: args.feature.title,
-          type: args.feature.type
+          title: args.feature.title
         }
       });
     }
@@ -67,8 +66,7 @@ const MutationResolvers = {
       feature = await context.prisma.feature.create({
         data: {
           uuid: args.feature.uuid,
-          title: args.feature.title,
-          type: args.feature.type
+          title: args.feature.title
         }
       });
       featureId = feature.id;
@@ -128,30 +126,56 @@ const MutationResolvers = {
   ) {
     let featureSliceId = parseInt(args.featureSlice.id);
     let featureSlice = null;
-    if (featureSliceId && featureSliceId > 0) {
-      featureSlice = await context.prisma.featureSlice.update({
+    try {
+      featureSlice = await context.prisma.featureSlice.upsert({
         where: { id: featureSliceId },
-        data: {
-          uuid: args.featureSlice.uuid,
-          coordinates: args.featureSlice.coordinates,
-          startYear: args.featureSlice.startYear,
-          endYear: args.featureSlice.endYear
-        }
-      });
-      console.log(featureSlice);
-    }
-    else {
-      featureSlice = await context.prisma.featureSlice.create({
-        data: {
+        create: {
           uuid: args.featureSlice.uuid,
           featureId: parseInt(args.featureSlice.featureId),
+          type: args.featureSlice.type,
+          coordinates: args.featureSlice.coordinates,
+          startYear: args.featureSlice.startYear,
+          endYear: args.featureSlice.endYear
+        },
+        update: {
+          uuid: args.featureSlice.uuid,
+          type: args.featureSlice.type,
           coordinates: args.featureSlice.coordinates,
           startYear: args.featureSlice.startYear,
           endYear: args.featureSlice.endYear
         }
       });
+
       featureSliceId = featureSlice.id;
+    } catch (err) {
+      console.log(`Unable to upsert FeatureSlice#${featureSliceId}: ${err}`);
+      console.log(err);
+      console.log(args);
     }
+    // if (featureSliceId && featureSliceId > 0) {
+    //   featureSlice = await context.prisma.featureSlice.update({
+    //     where: { id: featureSliceId },
+    //     data: {
+    //       uuid: args.featureSlice.uuid,
+    //       coordinates: args.featureSlice.coordinates,
+    //       startYear: args.featureSlice.startYear,
+    //       endYear: args.featureSlice.endYear
+    //     }
+    //   });
+    //   console.log(featureSlice);
+    // }
+    // else {
+    //   featureSlice = await context.prisma.featureSlice.create({
+    //     data: {
+    //       uuid: args.featureSlice.uuid,
+    //       featureId: parseInt(args.featureSlice.featureId),
+    //       coordinates: args.featureSlice.coordinates,
+    //       startYear: args.featureSlice.startYear,
+    //       endYear: args.featureSlice.endYear
+    //     }
+    //   });
+    //   featureSliceId = featureSlice.id;
+    // }
 
     return context.prisma.featureSlice.findUnique({ where: { id: featureSliceId } });
   },

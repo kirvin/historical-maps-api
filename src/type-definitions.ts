@@ -3,7 +3,6 @@ type FeatureInput = {
   id: string
   uuid: string
   title: string
-  type: string
   regions: Array<GeoRegionInput>
   slices: Array<FeatureSliceInput>
 }
@@ -16,6 +15,7 @@ type FeatureSliceInput = {
   id: string
   uuid: string
   featureId: string
+  type: string
   startYear: number
   endYear: number
   coordinates: string
